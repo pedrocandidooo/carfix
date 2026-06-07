@@ -460,21 +460,56 @@ export default function AssessTab({
       clearInterval(progressTimer);
       clearTimeout(statusTimer);
 
-      // Gracefully fall back to Corolla report configuration
+      // Gracefully fall back to a dynamic randomized report configuration aligned with Brazil tier rules
+      const rand = Math.random();
+      let damageLevel: "Baixo" | "Médio" | "Alto" = "Médio";
+      let damagePercentage = 45;
+      let estimatedValue = 1650;
+      let damages = ["Para-choque dianteiro amassado", "Arranhão na lateral"];
+      let tips = [
+        "O amassado afeta principalmente a estética, mas convém verificar travas internas.",
+        "O risco pode ser revitalizado com polimento técnico express se não houver atingido as camadas profundas."
+      ];
+
+      if (rand < 0.33) {
+        damageLevel = "Baixo";
+        damagePercentage = Math.floor(Math.random() * 15) + 5;
+        estimatedValue = Math.floor(Math.random() * (850 - 350 + 1)) + 350;
+        damages = ["Arranhão leve na porta lateral traseira"];
+        tips = [
+          "Arranhões superficiais e estéticos podem ser removidos com micro pintura express sem desmontagem.",
+          "Polimento comercial resolve riscos rápidos economizando tempo."
+        ];
+      } else if (rand > 0.66) {
+        damageLevel = "Alto";
+        damagePercentage = Math.floor(Math.random() * 30) + 65;
+        estimatedValue = Math.floor(Math.random() * (9500 - 3500 + 1)) + 3500;
+        damages = ["Farol quebrado", "Capô amassado severamente", "Grade trincada"];
+        tips = [
+          "Colisão de alto impacto. Recomendamos consultar a franquia do seu seguro seguro auto.",
+          "Troque faróis quebrados o quanto antes para prevenir multas e retenção nas rodovias."
+        ];
+      } else {
+        damageLevel = "Médio";
+        damagePercentage = Math.floor(Math.random() * 25) + 30;
+        estimatedValue = Math.floor(Math.random() * (3000 - 1200 + 1)) + 1200;
+        damages = ["Para-choque amassado", "Retrovisor pendurado"];
+        tips = [
+          "Funilaria express ou martelinho de ouro recuperam a estética original.",
+          "Verifique se as presilhas traseiras de fixação plástica estão íntegras."
+        ];
+      }
+
       const fallbackReport: DamageReport = {
         id: `rep-${Date.now()}`,
         date: new Date().toLocaleDateString("pt-BR"),
-        estimatedValue: 1250,
-        damageLevel: "Médio",
-        damagePercentage: 55,
-        damages: ["Parachoque dianteiro", "Arranhão na porta"],
-        vehicleModel: activeVehicle ? `${activeVehicle.model} ${activeVehicle.year || ""}` : "Toyota Corolla 2022",
-        vehicleDetails: activeVehicle ? `${activeVehicle.color} • Placa ${activeVehicle.plate}` : "Prata Metálico • Placa ABC-***1",
-        tips: [
-          "O amassado no parachoque dianteiro afeta principalmente a estética, mas convém verificar travas internas.",
-          "O risco na porta pode ser revitalizado com polimento profissional se não houver atingido a primer.",
-          "Recomendado fazer alinhamento se houve impacto na roda ou suspensão"
-        ],
+        estimatedValue,
+        damageLevel,
+        damagePercentage,
+        damages,
+        vehicleModel: activeVehicle ? `${activeVehicle.model} ${activeVehicle.year || ""}` : "Volkswagen Polo Comfortline",
+        vehicleDetails: activeVehicle ? `${activeVehicle.color} • Placa ${activeVehicle.plate}` : "Cinza Metálico • Placa ABC-***1",
+        tips,
         photoUrl: base64Image || ANALYZED_CAR_ILLUSTRATION,
         vehicleId: activeVehicle?.id,
         isSimulated: true

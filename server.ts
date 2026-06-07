@@ -111,24 +111,113 @@ app.post("/api/analyze-damage", async (req, res) => {
       }
     }
 
+    // Helper for generating deterministic values based on image payload size and content to give different results for different photos
+    const base64Len = base64Data.length || 100;
+    let seed = base64Len;
+    for (let i = 0; i < Math.min(1000, base64Len); i += 17) {
+      seed += base64Data.charCodeAt(i) || 0;
+    }
+    
+    const pseudorand = () => {
+      const x = Math.sin(seed++) * 10000;
+      return x - Math.floor(x);
+    };
+
     // Safe Check: Check if Gemini is ready, otherwise return a highly accurate dynamic mock selection
     if (!ai) {
       console.warn("Utilizando simulador robusto de IA devido à falta de credencial GEMINI_API_KEY.");
-      // Choose random preset or try to matching based on size/content
-      const chosenPreset = FallbackPresets[Math.floor(Math.random() * FallbackPresets.length)];
-      let val = chosenPreset.estimatedValue;
-      if (chosenPreset.damageLevel === "Baixo") {
-        val = Math.floor(Math.random() * (850 - 350 + 1)) + 350;
-      } else if (chosenPreset.damageLevel === "Alto") {
-        val = Math.floor(Math.random() * (9500 - 3500 + 1)) + 3500;
+      
+      // Select randomized damage levels
+      const randVal = pseudorand();
+      let damageLevel: "Baixo" | "Médio" | "Alto" = "Médio";
+      let damagePercentage = 35;
+      let estimatedValue = 1850;
+      let damagesList: string[] = [];
+      let tipsList: string[] = [];
+      
+      if (randVal < 0.33) {
+        damageLevel = "Baixo";
+        damagePercentage = Math.floor(pseudorand() * (25 - 5 + 1)) + 5;
+        estimatedValue = Math.floor(pseudorand() * (850 - 350 + 1)) + 350;
+        
+        const baixoDamages = [
+          ["Arranhão leve na lateral direita", "Pequeno risco no retrovisor externo"],
+          ["Risco de chave na porta lateral traseira", "Pintura descascada sob a maçaneta"],
+          ["Arranhão superficial decorrente de asfalto raspado no para-choque", "Pequena mancha de atrito"]
+        ];
+        damagesList = baixoDamages[Math.floor(pseudorand() * baixoDamages.length)];
+        tipsList = [
+          "Arranhões superficiais podem ser preenchidos com retosques rápidos de micro pintura express.",
+          "Consulte se um polimento comercial técnico pode eliminar o risco sem necessidade de repintura integral.",
+          "Oficinas com cura Ultravioleta (UV) finalizam este tipo de reparo express em menos de 2 horas."
+        ];
+      } else if (randVal < 0.66) {
+        damageLevel = "Médio";
+        damagePercentage = Math.floor(pseudorand() * (60 - 30 + 1)) + 30;
+        estimatedValue = Math.floor(pseudorand() * (3000 - 1200 + 1)) + 1200;
+        
+        const medioDamages = [
+          ["Para-choque traseiro amassado", "Tampa do porta-malas desalinhada"],
+          ["Porta do motorista levemente amassada", "Rachadura plástica no defletor"],
+          ["Paralamas esquerdo amassado", "Friso cromado entortado por compressão"]
+        ];
+        damagesList = medioDamages[Math.floor(pseudorand() * medioDamages.length)];
+        tipsList = [
+          "O amassamento exige funilaria express ou martelinho de ouro premium de acordo com as travas traseiras.",
+          "Verifique a fiação e os sensores de ré se instalados próximos do para-choque afetado.",
+          "Sua circulação está segura, mas convém alinhar a peça para evitar acúmulo de água e poeira."
+        ];
       } else {
-        val = Math.floor(Math.random() * (3000 - 1200 + 1)) + 1200;
+        damageLevel = "Alto";
+        damagePercentage = Math.floor(pseudorand() * (95 - 65 + 1)) + 65;
+        estimatedValue = Math.floor(pseudorand() * (9500 - 3500 + 1)) + 3500;
+        
+        const altoDamages = [
+          ["Parachoque frontal quebrado", "Farol de LED esquerdo trincado", "Capô amassado"],
+          ["Batida lateral profunda", "Porta traseira deformada", "Coluna central desalinhada"],
+          ["Colisão traseira grave", "Lanterna quebrando lente", "Alma de aço interna amassada"]
+        ];
+        damagesList = altoDamages[Math.floor(pseudorand() * altoDamages.length)];
+        tipsList = [
+          "Colisão de grande relevância. Recomendamos realizar vistoria detalhada de suspensão e alinhamento tridimensional.",
+          "A lente ou farol trincado deve ser substituído compulsoriamente para evitar retenção do veículo por autoridades de trânsito.",
+          "Verifique as custas com a franquia de sua seguradora; o prejuízo estimado costuma viabilizar o acionamento do seguro."
+        ];
       }
+      
+      const carModels = [
+        "Chevrolet Onix LTZ 2021",
+        "Hyundai HB20 Evolution 2022",
+        "Volkswagen Polo TSI 2023",
+        "Toyota Corolla XEi 2022",
+        "Jeep Renegade Longitude 2021",
+        "Fiat Cronos Drive 2022",
+        "Renault Kwid Intense 2021",
+        "Nissan Kicks Active 2022"
+      ];
+      const vehicleModel = carModels[Math.floor(pseudorand() * carModels.length)];
+      
+      const colors = ["Branco Polar", "Preto Vulcano", "Cinza Silverstone", "Prata Bari", "Vermelho Montecarlo"];
+      const color = colors[Math.floor(pseudorand() * colors.length)];
+      const plateChar1 = "ABCDE"[Math.floor(pseudorand() * 5)];
+      const plateChar2 = "FGHIJ"[Math.floor(pseudorand() * 5)];
+      const plateChar3 = "KLMNO"[Math.floor(pseudorand() * 5)];
+      const plateNum1 = Math.floor(pseudorand() * 10);
+      const plateChar4 = "ABCDEFGHIJ"[Math.floor(pseudorand() * 10)];
+      const plateNum2 = Math.floor(pseudorand() * 10);
+      const plateNum3 = Math.floor(pseudorand() * 10);
+      const plate = `${plateChar1}${plateChar2}${plateChar3}-${plateNum1}${plateChar4}${plateNum2}${plateNum3}`;
+      
       // Simulate delay for AI feel
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 1800));
       return res.json({
-        ...chosenPreset,
-        estimatedValue: val,
+        estimatedValue,
+        damageLevel,
+        damagePercentage,
+        damages: damagesList,
+        vehicleModel,
+        vehicleDetails: `${color} • Placa ${plate}`,
+        tips: tipsList,
         isSimulated: true
       });
     }
