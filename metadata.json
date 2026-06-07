@@ -2,7 +2,8 @@
   "name": "CarFix",
   "description": "Análise de avarias por inteligência artificial e orçamentos rápidos para seu veículo.",
   "requestFramePermissions": [
-    "camera"
+    "camera",
+    "geolocation"
   ],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

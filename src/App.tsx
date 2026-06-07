@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Wrench, Bell, Check, Info } from "lucide-react";
+import { Wrench, Check, Info } from "lucide-react";
 import { Vehicle, DamageReport } from "./types";
 import { INITIAL_VEHICLES, PRESET_REPORTS } from "./data";
 import BottomNavBar from "./components/BottomNavBar";
@@ -213,17 +213,8 @@ export default function App() {
             </button>
           </div>
 
-          {/* Right utility buttons */}
+          {/* Right utility buttons placeholder */}
           <div className="flex items-center gap-2">
-            <button
-              id="btn-bell"
-              onClick={() => alert("Você está com todos os seus diagnósticos e revisões em dia!")}
-              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 text-white/80 transition-colors active:scale-95 relative"
-              title="Notificações"
-            >
-              <Bell size={20} />
-              <span className="absolute top-2 right-2.5 w-2 h-2 bg-brand-emerald rounded-full shadow-[0_0_8px_rgba(16,185,129,0.7)]"></span>
-            </button>
           </div>
         </div>
       </header>

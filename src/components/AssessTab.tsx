@@ -21,9 +21,91 @@ import {
   PRESET_CAR_ILLUSTRATION,
   SCANNING_CAR_ILLUSTRATION,
   ANALYZED_CAR_ILLUSTRATION,
-  PRESET_REPORTS,
-  WORKSHOPS
+  PRESET_REPORTS
 } from "../data";
+
+function getStateAbbreviation(stateName: string): string {
+  const norm = stateName.toLowerCase().trim();
+  if (norm.includes("são paulo") || norm === "sp") return "SP";
+  if (norm.includes("rio de janeiro") || norm === "rj") return "RJ";
+  if (norm.includes("minas gerais") || norm === "mg") return "MG";
+  if (norm.includes("paraná") || norm.includes("parana") || norm === "pr") return "PR";
+  if (norm.includes("rio grande do sul") || norm === "rs") return "RS";
+  if (norm.includes("santa catarina") || norm === "sc") return "SC";
+  if (norm.includes("bahia") || norm === "ba") return "BA";
+  if (norm.includes("pernambuco") || norm === "pe") return "PE";
+  if (norm.includes("ceará") || norm.includes("ceara") || norm === "ce") return "CE";
+  if (norm.includes("distrito federal") || norm === "df") return "DF";
+  if (norm.includes("goiás") || norm.includes("goias") || norm === "go") return "GO";
+  if (norm.includes("espírito santo") || norm.includes("espirito santo") || norm === "es") return "ES";
+  if (norm.includes("rio grande do norte") || norm === "rn") return "RN";
+  if (norm.includes("paraíba") || norm.includes("paraiba") || norm === "pb") return "PB";
+  if (norm.includes("amazonas") || norm === "am") return "AM";
+  if (norm.includes("pará") || norm.includes("para") || norm === "pa") return "PA";
+  if (norm.includes("maranhão") || norm.includes("maranhao") || norm === "ma") return "MA";
+  if (norm.includes("piauí") || norm.includes("piaui") || norm === "pi") return "PI";
+  if (norm.includes("alagoas") || norm === "al") return "AL";
+  if (norm.includes("sergipe") || norm === "se") return "SE";
+  if (norm.includes("mato grosso") || norm === "mt") return "MT";
+  if (norm.includes("mato grosso do sul") || norm === "ms") return "MS";
+  if (norm.includes("tocantins") || norm === "to") return "TO";
+  if (norm.includes("acre") || norm === "ac") return "AC";
+  if (norm.includes("rondônia") || norm.includes("rondonia") || norm === "ro") return "RO";
+  if (norm.includes("roraima") || norm === "rr") return "RR";
+  if (norm.includes("amapá") || norm.includes("amapa") || norm === "ap") return "AP";
+  
+  if (stateName.length === 2) return stateName.toUpperCase();
+  return "SP";
+}
+
+function getDDD(stateName: string): string {
+  const norm = stateName.toLowerCase().trim();
+  if (norm.includes("são paulo") || norm === "sp") return "11";
+  if (norm.includes("rio de janeiro") || norm === "rj") return "21";
+  if (norm.includes("minas gerais") || norm === "mg") return "31";
+  if (norm.includes("paraná") || norm.includes("parana") || norm === "pr") return "41";
+  if (norm.includes("rio grande do sul") || norm === "rs") return "51";
+  if (norm.includes("santa catarina") || norm === "sc") return "48";
+  if (norm.includes("bahia") || norm === "ba") return "71";
+  if (norm.includes("pernambuco") || norm === "pe") return "81";
+  if (norm.includes("ceará") || norm.includes("ceara") || norm === "ce") return "85";
+  if (norm.includes("distrito federal") || norm === "df") return "61";
+  if (norm.includes("goiás") || norm.includes("goias") || norm === "go") return "62";
+  if (norm.includes("espírito santo") || norm.includes("espirito santo") || norm === "es") return "27";
+  return "11";
+}
+
+function generateWorkshopsList(city: string, state: string, neighborhood: string): Workshop[] {
+  const uf = getStateAbbreviation(state);
+  const ddd = getDDD(state);
+  const bairro = neighborhood || "Centro";
+  return [
+    {
+      name: "Precision Funilaria & Martelinho",
+      address: `Av. Autonomistas, 1500 - ${bairro}, ${city} - ${uf}`,
+      distance: "1.4 km",
+      rating: 4.9,
+      phone: `(${ddd}) 98765-4321`,
+      specialties: ["Martelinho de Ouro", "Retoque Express", "Pintura Ultravioleta"]
+    },
+    {
+      name: "Autobahn Reparo Premium",
+      address: `Rua das Flores, 460 - ${bairro}, ${city} - ${uf}`,
+      distance: "2.3 km",
+      rating: 4.8,
+      phone: `(${ddd}) 91234-5678`,
+      specialties: ["Polimento Avançado", "Vitrificação Ceramic", "Restauração de Plásticos"]
+    },
+    {
+      name: `Detailing Center ${city}`,
+      address: `Av. Principal, 1050 - ${bairro}, ${city} - ${uf}`,
+      distance: "3.8 km",
+      rating: 4.7,
+      phone: `(${ddd}) 97777-8888`,
+      specialties: ["Estética Automotiva", "Micro Pintura", "Reparo de Rodas"]
+    }
+  ];
+}
 
 interface AssessTabProps {
   key?: string;
@@ -66,6 +148,52 @@ export default function AssessTab({
 
   // Active sliding panel state for Workshops
   const [showWorkshopsPanel, setShowWorkshopsPanel] = useState(false);
+
+  // Localization States for Brazil GPS support
+  const [userCity, setUserCity] = useState("São Paulo");
+  const [userState, setUserState] = useState("SP");
+  const [userNeighborhood, setUserNeighborhood] = useState("Vila Olímpia");
+  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+  const [manualSearchCity, setManualSearchCity] = useState("");
+
+  const fetchBrowserLocation = () => {
+    if (!navigator.geolocation) {
+      console.warn("Geolocation is not supported by this browser.");
+      return;
+    }
+    setIsFetchingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=pt`);
+          if (res.ok) {
+            const data = await res.json();
+            const city = data.city || data.locality || data.principalSubdivision || "Seu Município";
+            const state = data.principalSubdivision || "SP";
+            const neighborhood = data.locality || "Bairro Próximo";
+            setUserCity(city);
+            setUserState(state);
+            setUserNeighborhood(neighborhood);
+          }
+        } catch (e) {
+          console.error("Reverse geocoding fail:", e);
+        } finally {
+          setIsFetchingLocation(false);
+        }
+      },
+      (error) => {
+        console.warn("Geolocation permission or fetching failed:", error);
+        setIsFetchingLocation(false);
+      }
+    );
+  };
+
+  useEffect(() => {
+    if (showWorkshopsPanel) {
+      fetchBrowserLocation();
+    }
+  }, [showWorkshopsPanel]);
 
   // Upload/input image state
   const [uploadedImageBase64, setUploadedImageBase64] = useState<string>(
@@ -442,35 +570,7 @@ export default function AssessTab({
             </div>
           </div>
 
-          {/* Quick Demo Assist section to let user experience presets immediately */}
-          <div className="bg-white/5 backdrop-blur-xl p-4 rounded-xl border border-white/10 shadow-lg">
-            <span className="text-[11px] font-bold text-blue-300 uppercase tracking-widest block mb-3 text-center">
-              Demonstração Pronta: Testar com Amostras do Scanner
-            </span>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              <button
-                id="btn-preset-toyota"
-                onClick={() => triggerPresetAnalysis(0)}
-                className="bg-white/5 hover:bg-white/15 text-xs py-2 px-3 rounded-lg border border-white/10 hover:border-white/30 font-semibold text-white transition-all shadow-sm text-center truncate"
-              >
-                Amostra Corolla (Médio)
-              </button>
-              <button
-                id="btn-preset-civic"
-                onClick={() => triggerPresetAnalysis(1)}
-                className="bg-white/5 hover:bg-white/15 text-xs py-2 px-3 rounded-lg border border-white/10 hover:border-white/30 font-semibold text-white transition-all shadow-sm text-center truncate"
-              >
-                Amostra Civic (Alto)
-              </button>
-              <button
-                id="btn-preset-hb20"
-                onClick={() => triggerPresetAnalysis(2)}
-                className="bg-white/5 hover:bg-white/15 text-xs py-2 px-3 rounded-lg border border-white/10 hover:border-white/30 font-semibold text-white transition-all shadow-sm text-center col-span-2 sm:col-span-1 truncate"
-              >
-                Amostra HB20 (Baixo)
-              </button>
-            </div>
-          </div>
+
 
           {/* Recent Vehicles list */}
           <div className="space-y-3">
@@ -841,13 +941,66 @@ export default function AssessTab({
               </button>
             </div>
 
+            {/* GPS and Search Panel */}
+            <div className="p-4 bg-white/5 border-b border-white/10 space-y-3 shrink-0">
+              <div className="flex items-center justify-between text-xs font-bold text-white/70">
+                <div className="truncate pr-2">
+                  Província: <span className="text-blue-300 font-extrabold">{userCity}, {getStateAbbreviation(userState)}</span>
+                  {userNeighborhood && (
+                    <span className="text-white/40 font-normal"> ({userNeighborhood})</span>
+                  )}
+                </div>
+                <button
+                  id="btn-detect-gps"
+                  onClick={fetchBrowserLocation}
+                  disabled={isFetchingLocation}
+                  className="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1 active:scale-95 disabled:opacity-50 shrink-0"
+                  title="Detectar por GPS no Navegador"
+                >
+                  <RefreshCw size={13} className={isFetchingLocation ? "animate-spin" : ""} />
+                  {isFetchingLocation ? "Buscando..." : "GPS"}
+                </button>
+              </div>
+
+              <form
+                id="form-manual-city"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (manualSearchCity.trim()) {
+                    const parts = manualSearchCity.split(",");
+                    const parsedCity = parts[0].trim();
+                    const parsedState = parts[1] ? parts[1].trim() : "SP";
+                    setUserCity(parsedCity);
+                    setUserState(parsedState);
+                    setUserNeighborhood("Bairro Central");
+                    setManualSearchCity("");
+                  }
+                }}
+                className="flex gap-2"
+              >
+                <input
+                  type="text"
+                  placeholder="Ex: Rio de Janeiro, RJ ou Curitiba"
+                  value={manualSearchCity}
+                  onChange={(e) => setManualSearchCity(e.target.value)}
+                  className="flex-grow px-3 py-1.5 bg-white/5 border border-white/10 focus:border-blue-400 rounded-lg text-xs text-white placeholder:text-white/30 font-medium h-9 focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-4 rounded-lg active:scale-95 transition-all text-center h-9 font-sans"
+                >
+                  Buscar
+                </button>
+              </form>
+            </div>
+
             {/* List */}
             <div className="flex-grow overflow-y-auto p-4 space-y-4">
-              <span className="text-[10px] font-bold text-blue-300 uppercase tracking-widest block mb-2 leading-relaxed">
-                Redes Certificadas CarFix São Paulo - SP
+              <span className="text-[10px] font-bold text-blue-300 uppercase tracking-widest block mb-1 leading-relaxed">
+                Redes Credenciadas CarFix • {userCity} - {getStateAbbreviation(userState)}
               </span>
 
-              {WORKSHOPS.map((shop, idx) => (
+              {generateWorkshopsList(userCity, userState, userNeighborhood).map((shop, idx) => (
                 <div
                   key={idx}
                   className="bg-white/5 rounded-xl p-4 border border-white/10 shadow-lg hover:border-blue-400/30 hover:bg-white/10 transition-all space-y-3"
@@ -855,7 +1008,7 @@ export default function AssessTab({
                   <div className="flex justify-between items-start gap-2">
                     <div>
                       <h4 className="font-bold text-white text-sm">{shop.name}</h4>
-                      <p className="text-xs text-white/60 mt-1 flex items-start gap-1">
+                      <p className="text-xs text-white/60 mt-1 flex items-start gap-1 leading-normal">
                         <MapPin size={12} className="shrink-0 mt-0.5 text-blue-400" /> {shop.address}
                       </p>
                     </div>
@@ -881,13 +1034,16 @@ export default function AssessTab({
                     >
                       <Phone size={13} className="text-blue-300" /> {shop.phone}
                     </a>
-                    <button
+                    
+                    <a
                       id={`btn-route-${idx}`}
-                      onClick={() => alert(`Rota por GPS calculada para ${shop.name}!`)}
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs px-3.5 py-2 rounded-lg font-bold transition-all active:scale-95 border border-white/10"
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shop.name + " " + shop.address)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs px-3.5 py-2 rounded-lg font-bold transition-all active:scale-95 border border-white/10 flex items-center justify-center gap-1 text-center"
                     >
                       Ir por GPS
-                    </button>
+                    </a>
                   </div>
                 </div>
               ))}

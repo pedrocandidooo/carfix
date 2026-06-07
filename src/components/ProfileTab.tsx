@@ -78,7 +78,7 @@ export default function ProfileTab({ vehicles, reports, developerEmail = "candid
           <div className="pt-4">
             <h5 className="font-bold text-white text-sm mb-1">Onde posso consertar meu carro?</h5>
             <p className="text-xs text-white/70 leading-relaxed">
-              Conectamos você com oficinas credenciadas próximas. Vá no relatório detalhado de seu sinistro e clique no botão **"Ver Oficinas Próximas"** para buscar redes qualificadas em São Paulo.
+              Conectamos você com oficinas credenciadas próximas. Vá no relatório detalhado de seu sinistro e clique no botão **"Ver Oficinas Próximas"** para buscar redes qualificadas em qualquer lugar do Brasil.
             </p>
           </div>
         </div>
