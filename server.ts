@@ -75,7 +75,7 @@ const FallbackPresets = [
 // API Endpoints
 app.post("/api/analyze-damage", async (req, res) => {
   try {
-    const { image, fileName, presetIndex } = req.body;
+    const { image, presetIndex } = req.body;
 
     // Direct simulation option
     if (presetIndex !== undefined && presetIndex >= 0 && presetIndex < FallbackPresets.length) {
@@ -103,31 +103,10 @@ app.post("/api/analyze-damage", async (req, res) => {
       }
     }
 
-    // Safe Check: Check if Gemini is ready, otherwise return a highly accurate dynamic mock selection with offline validation
+    // Safe Check: Check if Gemini is ready, otherwise return a highly accurate dynamic mock selection
     if (!ai) {
       console.warn("Utilizando simulador robusto de IA devido à falta de credencial GEMINI_API_KEY.");
-      
-      // Perform automated local image mock recognition using fileName as a prompt indicator
-      const nameLower = (fileName || "").toLowerCase();
-      if (nameLower) {
-        const nonCarKeywords = [
-          "gato", "cat", "dog", "cachorro", "comida", "food", "flor", "flower", "pessoa", "people", 
-          "office", "mesa", "selvagem", "paisagem", "doc", "pdf", "comprovante", "comprovacao",
-          "fatura", "recibo", "apple", "banana", "computador", "documento", "contrato", "sala", "casa"
-        ];
-
-        const containsNonCarKeyword = nonCarKeywords.some(keyword => nameLower.includes(keyword));
-
-        // We only reject if it is explicitly a non-vehicle keyword. Generic filenames like 'image', 'photo', 'IMG_' or 'camera_capture' are fully accepted.
-        if (containsNonCarKeyword) {
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-          return res.status(400).json({
-            error: `Imagem inválida ("${fileName}"). O CarFix apenas reconhece fotos de carros, autoveículos ou peças/avarias automotivas. Envie uma foto correspondente.`
-          });
-        }
-      }
-
-      // Choose random preset
+      // Choose random preset or try to matching based on size/content
       const chosenPreset = FallbackPresets[Math.floor(Math.random() * FallbackPresets.length)];
       // Simulate delay for AI feel
       await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -146,17 +125,7 @@ app.post("/api/analyze-damage", async (req, res) => {
     };
 
     const textPart = {
-      text: `Analise a imagem de forma extremamente rigorosa.
-Verifique obrigatoriamente se a imagem retrata de alguma forma um veículo (como carro, moto, ônibus, caminhão, etc.), peças visíveis de veículo (parachoque, capô, farol, lanterna, retrovisor, roda, porta, vidro, lateral, etc.) ou uma cena de colisão/batida/avaria automotiva.
-
-Se a imagem NÃO tiver nenhuma relação com veículos ou peças automotivas (por exemplo, se for comida, animais domésticos, pessoas em selfie sem veículo, plantas, interiores residenciais vazios, documentos, telas de computador sem carros, ou qualquer objeto aleatório não-automotivo), você DEVE definir obrigatoriamente a propriedade "isVehicleRelated" como false.
-Caso contrário, se for relacionado a veículos ou peças, defina "isVehicleRelated" como true.
-
-Se "isVehicleRelated" for true:
-- Faça a análise de avarias detalhadamente. Recomende o custo aproximado de reparo em Reais BRL (estimatedValue), o nível geral do dano (Baixo, Médio ou Alto), a porcentagem de danos aproximada de 0 a 100, a lista de peças ou áreas danificadas por extenso (damages), e o modelo provável do automóvel e ano/detalhes. Forneça conselhos de segurança nas dicas (tips).
-
-Se "isVehicleRelated" for false:
-- Você deve preencher "invalidImageReason" explicando em português, de forma amigável, educada e direta, o motivo da rejeição (ex: "A imagem enviada retrata um animal/comida/documento e não possui nenhum veículo ou peça de carro visível"). Deixe os outros campos com valores padrão (estimatedValue: 0, damageLevel: "Baixo", damagePercentage: 0, damages: [], tips: []).`
+      text: `Analise as avarias mecânicas ou estéticas visíveis neste veículo. Recomende o custo de reparo em BRL, o nível geral do dano (Baixo, Médio ou Alto), a porcentagem de danos aproximada, os componentes danificados e o modelo do automóvel se identificável. Forneça conselhos de segurança.`
     };
 
     const response = await ai.models.generateContent({
@@ -167,14 +136,6 @@ Se "isVehicleRelated" for false:
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            isVehicleRelated: {
-              type: Type.BOOLEAN,
-              description: "Indica se a foto contém um veículo, peça de veículo ou cena de colisão válida"
-            },
-            invalidImageReason: {
-              type: Type.STRING,
-              description: "Caso isVehicleRelated seja false, explique amigavelmente por que a imagem foi considerada inválida para a análise automotiva"
-            },
             estimatedValue: {
               type: Type.NUMBER,
               description: "Valor estimado de reparo em Reais (BRL), ex: 1250"
@@ -206,16 +167,7 @@ Se "isVehicleRelated" for false:
               description: "Conselhos úteis e alertas para o motorista."
             }
           },
-          required: [
-            "isVehicleRelated",
-            "estimatedValue",
-            "damageLevel",
-            "damagePercentage",
-            "damages",
-            "vehicleModel",
-            "vehicleDetails",
-            "tips"
-          ]
+          required: ["estimatedValue", "damageLevel", "damagePercentage", "damages", "vehicleModel", "vehicleDetails", "tips"]
         }
       }
     });
@@ -226,26 +178,24 @@ Se "isVehicleRelated" for false:
     }
 
     const data = JSON.parse(textOutput.trim());
-
-    if (data.isVehicleRelated === false || data.isVehicleRelated === "false") {
-      return res.status(400).json({
-        error: data.invalidImageReason || "A imagem enviada não foi identificada como sendo de um veículo ou de partes de um veículo. Por favor, envie uma foto válida de um carro, peças de automóvel ou avarias mecânicas."
-      });
-    }
-
     return res.json(data);
 
   } catch (error: any) {
     console.error("Erro na rota de API de análise de danos:", error);
-    
-    // Check if the error is a vehicle validation failure we intentionally made
-    if (error.message && (error.message.includes("imagem") || error.message.includes("veículo") || error.message.includes("carro") || error.message.includes("peça") || error.message.includes("inválida"))) {
-      return res.status(400).json({ error: error.message });
-    }
-
-    // Safe fallback for actual server-side errors
-    return res.status(400).json({
-      error: "Não conseguimos analisar o arquivo como um veículo. Verifique a iluminação e garanta que o carro ou peça danificada esteja nítido."
+    // Safe failover: do not crash but fallback to Corolla report securely
+    return res.json({
+      estimatedValue: 1250,
+      damageLevel: "Médio",
+      damagePercentage: 55,
+      damages: ["Parachoque dianteiro", "Arranhão na porta"],
+      vehicleModel: "Toyota Corolla (Simulação)",
+      vehicleDetails: "Prata Metálico • Placa ABC-***1",
+      tips: [
+        "Erro de API ao conectar com Gemini. Exibindo diagnóstico alternativo preventivo.",
+        "Recomendamos contatar um especialista para avaliar a estrutura interna sob o parachoque."
+      ],
+      isSimulated: true,
+      errorInfo: error.message || "Erro desconhecido"
     });
   }
 });
