@@ -107,28 +107,19 @@ app.post("/api/analyze-damage", async (req, res) => {
     if (!ai) {
       console.warn("Utilizando simulador robusto de IA devido à falta de credencial GEMINI_API_KEY.");
       
-      // Perform automated local image mock recognition using fileName as a prompt indicator!
+      // Perform automated local image mock recognition using fileName as a prompt indicator
       const nameLower = (fileName || "").toLowerCase();
       if (nameLower) {
-        const autoKeywords = [
-          "car", "carro", "civic", "corolla", "hb20", "veiculo", "auto", "motor", "roda",
-          "farol", "parachoque", "batida", "damage", "sinistro", "amassado", "risco", "funilaria",
-          "chevrolet", "fiat", "ford", "volkswagen", "honda", "toyota", "hyundai", "jeep", "renault",
-          "nissan", "peugeot", "citroen", "bmw", "audi", "mercedes", "porsche", "volvo", "tesla",
-          "byd", "gwm", "caoa", "chery", "placa", "camera_capture"
-        ];
-        
         const nonCarKeywords = [
           "gato", "cat", "dog", "cachorro", "comida", "food", "flor", "flower", "pessoa", "people", 
           "office", "mesa", "selvagem", "paisagem", "doc", "pdf", "comprovante", "comprovacao",
-          "fatura", "recibo", "apple", "banana", "computador"
+          "fatura", "recibo", "apple", "banana", "computador", "documento", "contrato", "sala", "casa"
         ];
 
-        const containsAutoKeyword = autoKeywords.some(keyword => nameLower.includes(keyword));
         const containsNonCarKeyword = nonCarKeywords.some(keyword => nameLower.includes(keyword));
 
-        // If it looks like a test image of non-car or clearly does not belong to auto keyword list
-        if (containsNonCarKeyword || !containsAutoKeyword) {
+        // We only reject if it is explicitly a non-vehicle keyword. Generic filenames like 'image', 'photo', 'IMG_' or 'camera_capture' are fully accepted.
+        if (containsNonCarKeyword) {
           await new Promise((resolve) => setTimeout(resolve, 1500));
           return res.status(400).json({
             error: `Imagem inválida ("${fileName}"). O CarFix apenas reconhece fotos de carros, autoveículos ou peças/avarias automotivas. Envie uma foto correspondente.`
