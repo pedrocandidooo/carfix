@@ -33,10 +33,10 @@ try {
 // Fallback preset answers in case of offline/missing key or non-vehicle inputs
 const FallbackPresets = [
   {
-    estimatedValue: 1250,
+    estimatedValue: 1850,
     damageLevel: "Médio",
     damagePercentage: 55,
-    damages: ["Parachoque dianteiro", "Arranhão na porta"],
+    damages: ["Parachoque dianteiro amassado", "Arranhão na porta lateral"],
     vehicleModel: "Toyota Corolla 2022",
     vehicleDetails: "Prata Metálico • Placa ABC-***1",
     tips: [
@@ -46,12 +46,13 @@ const FallbackPresets = [
     ]
   },
   {
-    estimatedValue: 3400,
+    estimatedValue: 5900,
     damageLevel: "Alto",
     damagePercentage: 80,
     damages: ["Farol esquerdo quebrado", "Capô amassado", "Grade frontal trincada"],
     vehicleModel: "Honda Civic 2020",
     vehicleDetails: "Preto Cristal • Placa XYZ-***6",
+    textDesc: "Batida Grave",
     tips: [
       "Farol quebrado impede a circulação noturna pelas leis brasileiras. Troque imediatamente.",
       "Impacto no capô necessita de funilaria leve para evitar problemas de travamento do motor.",
@@ -59,10 +60,10 @@ const FallbackPresets = [
     ]
   },
   {
-    estimatedValue: 650,
+    estimatedValue: 580,
     damageLevel: "Baixo",
     damagePercentage: 20,
-    damages: ["Arranhão profundo na lateral traseira", "Retrovisor descascado"],
+    damages: ["Arranhão profundo na lateral traseira", "Retrovisor plástico descascado"],
     vehicleModel: "Hyundai HB20 2021",
     vehicleDetails: "Branco Polar • Placa MNO-***4",
     tips: [
@@ -79,12 +80,19 @@ app.post("/api/analyze-damage", async (req, res) => {
 
     // Direct simulation option
     if (presetIndex !== undefined && presetIndex >= 0 && presetIndex < FallbackPresets.length) {
-      // Simulate small dynamic variation so it feels extremely real
+      // Simulate small dynamic variation and clamp properly to respect damage categories
       const preset = FallbackPresets[presetIndex];
-      const randomAdjustment = Math.floor(Math.random() * 150) - 75; // -75 to +75 BRL
+      let val = preset.estimatedValue;
+      if (preset.damageLevel === "Baixo") {
+        val = Math.floor(Math.random() * (850 - 350 + 1)) + 350;
+      } else if (preset.damageLevel === "Alto") {
+        val = Math.floor(Math.random() * (9500 - 3500 + 1)) + 3500;
+      } else {
+        val = Math.floor(Math.random() * (3000 - 1200 + 1)) + 1200;
+      }
       return res.json({
         ...preset,
-        estimatedValue: Math.max(300, preset.estimatedValue + randomAdjustment)
+        estimatedValue: val
       });
     }
 
@@ -108,10 +116,19 @@ app.post("/api/analyze-damage", async (req, res) => {
       console.warn("Utilizando simulador robusto de IA devido à falta de credencial GEMINI_API_KEY.");
       // Choose random preset or try to matching based on size/content
       const chosenPreset = FallbackPresets[Math.floor(Math.random() * FallbackPresets.length)];
+      let val = chosenPreset.estimatedValue;
+      if (chosenPreset.damageLevel === "Baixo") {
+        val = Math.floor(Math.random() * (850 - 350 + 1)) + 350;
+      } else if (chosenPreset.damageLevel === "Alto") {
+        val = Math.floor(Math.random() * (9500 - 3500 + 1)) + 3500;
+      } else {
+        val = Math.floor(Math.random() * (3000 - 1200 + 1)) + 1200;
+      }
       // Simulate delay for AI feel
       await new Promise((resolve) => setTimeout(resolve, 2000));
       return res.json({
         ...chosenPreset,
+        estimatedValue: val,
         isSimulated: true
       });
     }
@@ -125,7 +142,12 @@ app.post("/api/analyze-damage", async (req, res) => {
     };
 
     const textPart = {
-      text: `Analise as avarias mecânicas ou estéticas visíveis neste veículo. Recomende o custo de reparo em BRL, o nível geral do dano (Baixo, Médio ou Alto), a porcentagem de danos aproximada, os componentes danificados e o modelo do automóvel se identificável. Forneça conselhos de segurança.`
+      text: `Analise as avarias mecânicas ou estéticas visíveis neste veículo. Recomende o custo de reparo estimado em BRL (Reais), categorizando rigorosamente de acordo com as seguintes regras de precificação comercial do mercado de oficinas no Brasil:
+- Para danos leves, arranhões, riscos superficiais ou pequenos reparos estéticos (Nível de Dano: 'Baixo'): retorne obrigatoriamente um valor de mercado de oficina entre R$ 350,00 e R$ 850,00.
+- Para batidas médias, amassados intermediários, ralados maiores ou parachoques desalinhados (Nível de Dano: 'Médio'): retorne obrigatoriamente um valor entre R$ 1.200,00 e R$ 3.000,00.
+- Para colisões severas, batidas graves, faróis/lanternas totalmente quebrados ou com afetação estrutural e capô amassado (Nível de Dano: 'Alto'): retorne obrigatoriamente um valor mais alto entre R$ 3.500,00 e R$ 12.000,00+.
+
+Determine o nível de dano ('Baixo', 'Médio' ou 'Alto'), a porcentagem de danos representativa de 0 a 100, uma lista com os nomes das peças afetadas por extenso, o modelo provável do automóvel se identificável e outros detalhes aparentes do carro.`
     };
 
     const response = await ai.models.generateContent({
@@ -178,16 +200,35 @@ app.post("/api/analyze-damage", async (req, res) => {
     }
 
     const data = JSON.parse(textOutput.trim());
+
+    // Rigorously enforce the pricing levels requested by the user on the parsed response
+    if (data.damageLevel === "Baixo" || (data.damages && data.damages.some((d: string) => d.toLowerCase().includes("arranhão") || d.toLowerCase().includes("risco")))) {
+      data.damageLevel = "Baixo";
+      if (!data.estimatedValue || data.estimatedValue < 350 || data.estimatedValue > 850) {
+        data.estimatedValue = Math.floor(Math.random() * (850 - 350 + 1)) + 350;
+      }
+    } else if (data.damageLevel === "Alto") {
+      if (!data.estimatedValue || data.estimatedValue < 3500) {
+        data.estimatedValue = Math.floor(Math.random() * (9500 - 3500 + 1)) + 3500;
+      }
+    } else {
+      data.damageLevel = "Médio";
+      if (!data.estimatedValue || data.estimatedValue < 1200 || data.estimatedValue > 3000) {
+        data.estimatedValue = Math.floor(Math.random() * (3000 - 1200 + 1)) + 1200;
+      }
+    }
+
     return res.json(data);
 
   } catch (error: any) {
     console.error("Erro na rota de API de análise de danos:", error);
-    // Safe failover: do not crash but fallback to Corolla report securely
+    // Safe failover: do not crash but fallback to Corolla report securely matching Medium level
+    const randomMediumValue = Math.floor(Math.random() * (3000 - 1200 + 1)) + 1200;
     return res.json({
-      estimatedValue: 1250,
+      estimatedValue: randomMediumValue,
       damageLevel: "Médio",
       damagePercentage: 55,
-      damages: ["Parachoque dianteiro", "Arranhão na porta"],
+      damages: ["Parachoque dianteiro amassado", "Arranhão na porta"],
       vehicleModel: "Toyota Corolla (Simulação)",
       vehicleDetails: "Prata Metálico • Placa ABC-***1",
       tips: [
