@@ -80,7 +80,11 @@ export default function HistoryTab({ reports, onDeleteReport, onViewReport }: Hi
                         report.damageLevel
                       )}`}
                     >
-                      Dano {report.damageLevel}
+                      {report.damageLevel === "Baixo"
+                        ? "Arranhão (Baixo)"
+                        : report.damageLevel === "Alto"
+                        ? "Batida (Alto)"
+                        : "Amassado (Médio)"}
                     </span>
                     {report.isSimulated && (
                       <span className="text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/20 px-1.5 py-0.2 rounded font-semibold">

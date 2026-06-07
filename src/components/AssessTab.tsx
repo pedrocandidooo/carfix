@@ -869,7 +869,11 @@ export default function AssessTab({
                       ? "bg-red-500 text-white"
                       : "bg-amber-500 text-white"
                   }`}>
-                    {currentReport.damageLevel}
+                    {currentReport.damageLevel === "Baixo"
+                      ? "Arranhão (Baixo)"
+                      : currentReport.damageLevel === "Alto"
+                      ? "Batida (Alto)"
+                      : "Amassado (Médio)"}
                   </span>
                 </div>
 
